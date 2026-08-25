@@ -27,6 +27,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (Number(existing.count) >= group.member_count) return NextResponse.json({ error: 'Nhóm này đã đủ thành viên.' }, { status: 409 });
   const duplicate = await env.DB.prepare('SELECT id FROM responses WHERE group_id = ? AND lower(person_name) = lower(?)').bind(groupId, personName).first();
   if (duplicate) return NextResponse.json({ error: 'Tên này đã gửi lịch trong nhóm rồi.' }, { status: 409 });
-  await env.DB.prepare('INSERT INTO responses (group_id, person_name, avatar, slots, created_at) VALUES (?, ?, ?, ?, ?)').bind(groupId, personName, avatar, JSON.stringify(slots), new Date().toISOString()).run();
+  const avatarTaken = await env.DB.prepare('SELECT person_name FROM responses WHERE group_id = ? AND avatar = ?').bind(groupId, avatar).first<any>();
+  if (avatarTaken) return NextResponse.json({ error: `Mascot này đã được ${avatarTaken.person_name} chọn rồi. M chọn con khác nhé!` }, { status: 409 });
+  const inserted = await env.DB.prepare('INSERT INTO responses (group_id, person_name, avatar, slots, created_at) SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM responses WHERE group_id = ? AND avatar = ?)').bind(groupId, personName, avatar, JSON.stringify(slots), new Date().toISOString(), groupId, avatar).run();
+  if (!inserted.meta.changes) return NextResponse.json({ error: 'Mascot này vừa có người chọn mất rồi. M chọn con khác nhé!' }, { status: 409 });
   return NextResponse.json(await getGroup(groupId));
 }
