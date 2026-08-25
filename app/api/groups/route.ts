@@ -1,6 +1,38 @@
 import { env } from 'cloudflare:workers';
 import { NextResponse } from 'next/server';
-async function init(){await env.DB.batch([env.DB.prepare('CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, member_count INTEGER NOT NULL, created_at TEXT NOT NULL)'),env.DB.prepare('CREATE TABLE IF NOT EXISTS responses (id INTEGER PRIMARY KEY AUTOINCREMENT, group_id INTEGER NOT NULL, person_name TEXT NOT NULL, slots TEXT NOT NULL, created_at TEXT NOT NULL, FOREIGN KEY(group_id) REFERENCES groups(id))'),env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_responses_group_id ON responses(group_id)')])}
-function shape(row:any,responseRows:any[]){const all=responseRows.map(r=>JSON.parse(r.slots) as string[]);const finalSlots=all.length===row.member_count&&all.length?all.reduce((a,b)=>a.filter(x=>b.includes(x))):[];return{id:row.id,name:row.name,memberCount:row.member_count,submittedCount:all.length,status:all.length>=row.member_count?'finalized':'open',finalSlots}}
-export async function GET(){await init();const{results}=await env.DB.prepare('SELECT * FROM groups ORDER BY id DESC LIMIT 100').all();const output=await Promise.all(results.map(async row=>{const rs=await env.DB.prepare('SELECT slots FROM responses WHERE group_id = ?').bind(row.id).all();return shape(row,rs.results)}));return NextResponse.json(output)}
-export async function POST(request:Request){await init();const body=await request.json() as {name?:string;memberCount?:number};const name=body.name?.trim(),count=Number(body.memberCount);if(!name||count<2||count>20)return NextResponse.json({error:'Tên nhóm hoặc số thành viên chưa hợp lệ.'},{status:400});const result=await env.DB.prepare('INSERT INTO groups (name, member_count, created_at) VALUES (?, ?, ?)').bind(name,count,new Date().toISOString()).run();return NextResponse.json({id:result.meta.last_row_id,name,memberCount:count,submittedCount:0,status:'open',finalSlots:[]})}
+
+async function init() {
+  await env.DB.batch([
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, member_count INTEGER NOT NULL, created_at TEXT NOT NULL)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS responses (id INTEGER PRIMARY KEY AUTOINCREMENT, group_id INTEGER NOT NULL, person_name TEXT NOT NULL, avatar INTEGER NOT NULL DEFAULT 0, slots TEXT NOT NULL, created_at TEXT NOT NULL, FOREIGN KEY(group_id) REFERENCES groups(id))'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_responses_group_id ON responses(group_id)')
+  ]);
+  const columns = await env.DB.prepare('PRAGMA table_info(responses)').all<any>();
+  if (!columns.results.some(c => c.name === 'avatar')) await env.DB.prepare('ALTER TABLE responses ADD COLUMN avatar INTEGER NOT NULL DEFAULT 0').run();
+}
+
+function shape(row: any, responseRows: any[]) {
+  const participants = responseRows.map(r => ({ personName: r.person_name, avatar: Number(r.avatar || 0), slots: JSON.parse(r.slots) as string[] }));
+  const all = participants.map(p => p.slots);
+  const finalSlots = all.length === row.member_count && all.length ? all.reduce((a, b) => a.filter(x => b.includes(x))) : [];
+  return { id: row.id, name: row.name, memberCount: row.member_count, submittedCount: all.length, status: all.length >= row.member_count ? 'finalized' : 'open', finalSlots, participants };
+}
+
+export async function GET() {
+  await init();
+  const { results } = await env.DB.prepare('SELECT * FROM groups ORDER BY id DESC LIMIT 100').all();
+  const output = await Promise.all(results.map(async row => {
+    const rs = await env.DB.prepare('SELECT person_name, avatar, slots FROM responses WHERE group_id = ? ORDER BY id').bind(row.id).all();
+    return shape(row, rs.results);
+  }));
+  return NextResponse.json(output);
+}
+
+export async function POST(request: Request) {
+  await init();
+  const body = await request.json() as { name?: string; memberCount?: number };
+  const name = body.name?.trim(), count = Number(body.memberCount);
+  if (!name || count < 2 || count > 20) return NextResponse.json({ error: 'Tên nhóm hoặc số thành viên chưa hợp lệ.' }, { status: 400 });
+  const result = await env.DB.prepare('INSERT INTO groups (name, member_count, created_at) VALUES (?, ?, ?)').bind(name, count, new Date().toISOString()).run();
+  return NextResponse.json({ id: result.meta.last_row_id, name, memberCount: count, submittedCount: 0, status: 'open', finalSlots: [], participants: [] });
+}

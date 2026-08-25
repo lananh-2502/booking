@@ -1,0 +1,1 @@
+ALTER TABLE `responses` ADD `avatar` integer DEFAULT 0 NOT NULL;
