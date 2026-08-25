@@ -10,7 +10,10 @@
     "build": "vinext build",
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "deploy:prepare": "node scripts/prepare-cloudflare-deploy.mjs",
+    "db:migrate:remote": "wrangler d1 migrations apply --remote --config dist/server/wrangler.deploy.jsonc",
+    "deploy:cloudflare": "wrangler deploy --config dist/server/wrangler.deploy.jsonc"
   },
   "dependencies": {
     "next": "16.2.6",
