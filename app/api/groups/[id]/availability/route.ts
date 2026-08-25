@@ -18,18 +18,39 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params, groupId = Number(id);
-  const body = await request.json() as { personName?: string; avatar?: number; slots?: string[] };
+  const body = await request.json() as { personName?: string; avatar?: number; slots?: string[]; confirmNoOverlap?: boolean };
   const personName = body.personName?.trim(), avatar = Number(body.avatar), slots = [...new Set(body.slots || [])];
   if (!personName || !slots.length || !Number.isInteger(avatar) || avatar < 0 || avatar > 10) return NextResponse.json({ error: 'Tên, avatar và lịch rảnh là bắt buộc.' }, { status: 400 });
   const group = await env.DB.prepare('SELECT * FROM groups WHERE id = ?').bind(groupId).first<any>();
   if (!group) return NextResponse.json({ error: 'Không tìm thấy nhóm.' }, { status: 404 });
-  const existing = await env.DB.prepare('SELECT COUNT(*) AS count FROM responses WHERE group_id = ?').bind(groupId).first<any>();
-  if (Number(existing.count) >= group.member_count) return NextResponse.json({ error: 'Nhóm này đã đủ thành viên.' }, { status: 409 });
-  const duplicate = await env.DB.prepare('SELECT id FROM responses WHERE group_id = ? AND lower(person_name) = lower(?)').bind(groupId, personName).first();
-  if (duplicate) return NextResponse.json({ error: 'Tên này đã gửi lịch trong nhóm rồi.' }, { status: 409 });
-  const avatarTaken = await env.DB.prepare('SELECT person_name FROM responses WHERE group_id = ? AND avatar = ?').bind(groupId, avatar).first<any>();
+  const ownResponse = await env.DB.prepare('SELECT id FROM responses WHERE group_id = ? AND lower(person_name) = lower(?)').bind(groupId, personName).first<any>();
+  const { results } = await env.DB.prepare('SELECT id, slots FROM responses WHERE group_id = ? ORDER BY id').bind(groupId).all<any>();
+  if (!ownResponse && results.length >= group.member_count) return NextResponse.json({ error: 'Nhóm này đã đủ thành viên.' }, { status: 409 });
+  const avatarTaken = await env.DB.prepare('SELECT person_name FROM responses WHERE group_id = ? AND avatar = ? AND lower(person_name) != lower(?)').bind(groupId, avatar, personName).first<any>();
   if (avatarTaken) return NextResponse.json({ error: `Mascot này đã được ${avatarTaken.person_name} chọn rồi. M chọn con khác nhé!` }, { status: 409 });
-  const inserted = await env.DB.prepare('INSERT INTO responses (group_id, person_name, avatar, slots, created_at) SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM responses WHERE group_id = ? AND avatar = ?)').bind(groupId, personName, avatar, JSON.stringify(slots), new Date().toISOString(), groupId, avatar).run();
-  if (!inserted.meta.changes) return NextResponse.json({ error: 'Mascot này vừa có người chọn mất rồi. M chọn con khác nhé!' }, { status: 409 });
+
+  const otherSlotSets = results.filter(r => r.id !== ownResponse?.id).map(r => JSON.parse(r.slots) as string[]);
+  const wouldFinalize = otherSlotSets.length + 1 >= group.member_count;
+  const combined = [...otherSlotSets, slots];
+  const commonSlots = combined.length ? combined.reduce((common, current) => common.filter(slot => current.includes(slot))) : [];
+  if (wouldFinalize && !commonSlots.length && !body.confirmNoOverlap) {
+    const popularity = new Map<string, number>();
+    combined.forEach(personSlots => personSlots.forEach(slot => popularity.set(slot, (popularity.get(slot) || 0) + 1)));
+    const highestCount = Math.max(0, ...popularity.values());
+    const suggestedSlots = [...popularity.entries()].filter(([, count]) => count === highestCount).map(([slot]) => slot).sort().slice(0, 3);
+    return NextResponse.json({
+      code: 'NO_COMMON_SLOT',
+      suggestedSlots,
+      highestCount,
+      error: 'Nhóm chưa có khung giờ nào trùng nhau.'
+    }, { status: 409 });
+  }
+
+  if (ownResponse) {
+    await env.DB.prepare('UPDATE responses SET avatar = ?, slots = ?, created_at = ? WHERE id = ?').bind(avatar, JSON.stringify(slots), new Date().toISOString(), ownResponse.id).run();
+  } else {
+    const inserted = await env.DB.prepare('INSERT INTO responses (group_id, person_name, avatar, slots, created_at) SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM responses WHERE group_id = ? AND avatar = ?)').bind(groupId, personName, avatar, JSON.stringify(slots), new Date().toISOString(), groupId, avatar).run();
+    if (!inserted.meta.changes) return NextResponse.json({ error: 'Mascot này vừa có người chọn mất rồi. M chọn con khác nhé!' }, { status: 409 });
+  }
   return NextResponse.json(await getGroup(groupId));
 }
