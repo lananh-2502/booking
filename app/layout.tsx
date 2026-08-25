@@ -4,7 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Hẹn nha! — Chốt lịch cả nhóm',
   description: 'Chọn lịch rảnh cùng nhau và tự động tìm ra ngày giờ phù hợp cho cả nhóm.',
-  metadataBase: new URL('https://hen-nha.sites.openai.com'),
+  metadataBase: new URL('https://hen-nha.accounts626891.chatgpt.site'),
   openGraph: {
     title: 'Hẹn nha! — Chốt lịch cả nhóm',
     description: 'Chọn lịch rảnh cùng nhau và tự động tìm ra ngày giờ phù hợp cho cả nhóm.',
