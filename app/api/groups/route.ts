@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   await init();
   const body = await request.json() as { name?: string; memberCount?: number };
   const name = body.name?.trim(), count = Number(body.memberCount);
-  if (!name || count < 2 || count > 6) return NextResponse.json({ error: 'Nhóm cần từ 2–6 người để mỗi người có một mascot riêng.' }, { status: 400 });
+  if (!name || count < 2 || count > 10) return NextResponse.json({ error: 'Nhóm cần từ 2–10 người để mỗi người có một mascot riêng.' }, { status: 400 });
   const result = await env.DB.prepare('INSERT INTO groups (name, member_count, created_at) VALUES (?, ?, ?)').bind(name, count, new Date().toISOString()).run();
   return NextResponse.json({ id: result.meta.last_row_id, name, memberCount: count, submittedCount: 0, status: 'open', finalSlots: [], participants: [] });
 }

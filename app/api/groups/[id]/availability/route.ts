@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params, groupId = Number(id);
   const body = await request.json() as { personName?: string; avatar?: number; slots?: string[] };
   const personName = body.personName?.trim(), avatar = Number(body.avatar), slots = [...new Set(body.slots || [])];
-  if (!personName || !slots.length || !Number.isInteger(avatar) || avatar < 0 || avatar > 5) return NextResponse.json({ error: 'Tên, avatar và lịch rảnh là bắt buộc.' }, { status: 400 });
+  if (!personName || !slots.length || !Number.isInteger(avatar) || avatar < 0 || avatar > 10) return NextResponse.json({ error: 'Tên, avatar và lịch rảnh là bắt buộc.' }, { status: 400 });
   const group = await env.DB.prepare('SELECT * FROM groups WHERE id = ?').bind(groupId).first<any>();
   if (!group) return NextResponse.json({ error: 'Không tìm thấy nhóm.' }, { status: 404 });
   const existing = await env.DB.prepare('SELECT COUNT(*) AS count FROM responses WHERE group_id = ?').bind(groupId).first<any>();
