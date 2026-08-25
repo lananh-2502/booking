@@ -16,8 +16,6 @@ const config = {
   compatibility_flags: ['nodejs_compat'],
   assets: {
     directory: '../client',
-    binding: 'ASSETS',
-    run_worker_first: true,
   },
   d1_databases: [{
     binding: 'DB',
