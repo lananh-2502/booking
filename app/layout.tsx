@@ -2,18 +2,18 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Hẹn nha! — Chốt lịch cả nhóm',
-  description: 'Chọn lịch rảnh cùng nhau và tự động tìm ra ngày giờ phù hợp cho cả nhóm.',
+  title: 'Chốt lịch lẹ lên!!! — Hẹn nha!',
+  description: 'Tạo nhóm, chọn lịch rảnh, chờ đủ người rồi chốt kèo.',
   metadataBase: new URL('https://hen-nha.accounts626891.chatgpt.site'),
   openGraph: {
-    title: 'Hẹn nha! — Chốt lịch cả nhóm',
-    description: 'Chọn lịch rảnh cùng nhau và tự động tìm ra ngày giờ phù hợp cho cả nhóm.',
+    title: 'Chốt lịch lẹ lên!!! — Hẹn nha!',
+    description: 'Tạo nhóm, chọn lịch rảnh, chờ đủ người rồi chốt kèo.',
     images: ['/og.png'],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Hẹn nha! — Chốt lịch cả nhóm',
-    description: 'Chọn lịch rảnh cùng nhau và tự động tìm ra ngày giờ phù hợp cho cả nhóm.',
+    title: 'Chốt lịch lẹ lên!!! — Hẹn nha!',
+    description: 'Tạo nhóm, chọn lịch rảnh, chờ đủ người rồi chốt kèo.',
     images: ['/og.png'],
   },
 };
